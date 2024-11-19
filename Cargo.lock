@@ -492,6 +492,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49f1f14873335454500d59611f1cf4a4b0f786f9ac11f4312a78e4cf2566695b"
 
 [[package]]
+name = "jq"
+version = "0.1.0"
+dependencies = [
+ "gh-workflow",
+ "pretty_assertions",
+ "tailcall-jq",
+]
+
+[[package]]
 name = "lazy_static"
 version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -924,10 +933,8 @@ dependencies = [
  "anyhow",
  "async-graphql",
  "async-graphql-value",
- "gh-workflow",
  "indexmap",
  "nom",
- "pretty_assertions",
  "serde_json",
  "serde_json_borrow",
 ]

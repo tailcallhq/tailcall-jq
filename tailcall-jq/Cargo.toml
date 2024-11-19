@@ -1,0 +1,13 @@
+[package]
+name = "tailcall-jq"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde_json = { workspace = true }
+async-graphql = { workspace = true }
+async-graphql-value = { workspace = true }
+indexmap = { workspace = true }
+serde_json_borrow = { workspace = true }
+nom = { workspace = true }
+anyhow = { workspace = true }
