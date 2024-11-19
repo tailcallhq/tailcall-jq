@@ -16,6 +16,7 @@ fn generate() {
         )
         .add_step(
             Cargo::new("test")
+                .nightly()
                 .args("--all-features --workspace")
                 .name("Cargo Test"),
         )
