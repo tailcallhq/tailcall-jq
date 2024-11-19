@@ -85,8 +85,6 @@ fn parse_mustache(input: &str) -> IResult<&str, Mustache> {
 
 #[cfg(test)]
 mod tests {
-    use pretty_assertions::assert_eq;
-
     use crate::mustache::mustache::{Mustache, Segment};
 
     #[test]
