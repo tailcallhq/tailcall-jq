@@ -685,6 +685,7 @@ dependencies = [
  "nom",
  "pest",
  "pest_derive",
+ "pretty_assertions",
  "serde_json",
 ]
 
