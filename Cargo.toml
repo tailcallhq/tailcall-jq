@@ -14,3 +14,4 @@ anyhow = "1.0.93"
 
 [dev-dependencies]
 pretty_assertions = "1.4.1"
+gh-workflow = "0.4.1"
