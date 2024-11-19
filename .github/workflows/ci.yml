@@ -19,7 +19,7 @@ name: Build and Test
 env:
   RUSTFLAGS: -Dwarnings
 on:
-  pull_request_target:
+  pull_request:
     types:
     - opened
     - synchronize
@@ -43,6 +43,8 @@ jobs:
         components: clippy, rustfmt
     - name: Cargo Test
       run: cargo test --all-features --workspace
+    - name: Cargo Bench
+      run: cargo bench
     - name: Cargo Fmt
       run: cargo +nightly fmt --check
     - name: Cargo Clippy

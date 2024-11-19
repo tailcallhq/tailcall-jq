@@ -19,6 +19,7 @@ fn generate() {
                 .args("--all-features --workspace")
                 .name("Cargo Test"),
         )
+        .add_step(Cargo::new("bench").name("Cargo Bench"))
         .add_step(
             Cargo::new("fmt")
                 .nightly()
@@ -34,8 +35,8 @@ fn generate() {
 
     let event = Event::default()
         .push(Push::default().add_branch("main"))
-        .pull_request_target(
-            PullRequestTarget::default()
+        .pull_request(
+            PullRequest::default()
                 .add_type(PullRequestType::Opened)
                 .add_type(PullRequestType::Synchronize)
                 .add_type(PullRequestType::Reopened)
