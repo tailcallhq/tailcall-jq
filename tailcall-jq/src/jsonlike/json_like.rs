@@ -44,6 +44,7 @@ pub trait JsonObjectLike<'obj>: Sized {
 #[cfg(test)]
 mod tests {
     use crate::jsonlike::group_by_key;
+    use pretty_assertions::assert_eq;
     use serde_json::json;
 
     use super::super::gather_path_matches;
