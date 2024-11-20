@@ -21,7 +21,7 @@ serde_json = "1.0.133"
 nom = "8.0.0-alpha2"
 
 [workspace]
-members = ["tailcall-jq"]
+members = ["tailcall-template"]
 
 [[bench]]
 name = "json_benches"
