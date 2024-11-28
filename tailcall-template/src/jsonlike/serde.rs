@@ -1,6 +1,8 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
 
+use serde_json::Number;
+
 use super::{JsonLike, JsonObjectLike};
 
 impl<'obj> JsonObjectLike<'obj> for serde_json::Map<String, serde_json::Value> {
@@ -123,5 +125,9 @@ impl<'json> JsonLike<'json> for serde_json::Value {
 
     fn string(s: Cow<'json, str>) -> Self {
         serde_json::Value::String(s.to_string())
+    }
+
+    fn number_f64(n: f64) -> Self {
+        Self::Number(Number::from_f64(n).unwrap())
     }
 }

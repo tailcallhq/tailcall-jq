@@ -2,7 +2,7 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 
 use async_graphql::Name;
-use async_graphql_value::ConstValue;
+use async_graphql_value::{ConstValue, Number};
 use indexmap::IndexMap;
 
 use super::*;
@@ -152,5 +152,9 @@ impl<'json> JsonLike<'json> for ConstValue {
 
     fn string(s: Cow<'json, str>) -> Self {
         ConstValue::String(s.to_string())
+    }
+
+    fn number_f64(n: f64) -> Self {
+        ConstValue::Number(Number::from_f64(n).unwrap())
     }
 }

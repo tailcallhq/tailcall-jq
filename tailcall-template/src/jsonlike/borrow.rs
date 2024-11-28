@@ -45,6 +45,10 @@ impl<'ctx> JsonLike<'ctx> for Value<'ctx> {
         Value::Str(s)
     }
 
+    fn number_f64(n: f64) -> Self {
+        Value::Number(n.into())
+    }
+
     fn as_array(&self) -> Option<&Vec<Self>> {
         match self {
             Value::Array(array) => Some(array),

@@ -14,23 +14,26 @@ impl<A> jaq_core::ValT for JsonLikeHelper<A>
 where
     A: for<'a> JsonLike<'a> + Clone + PartialEq + PartialOrd,
 {
-    fn from_num(n: &str) -> jaq_core::ValR<Self> {
+    fn from_num(n: &str) -> ValR<Self> {
+        match n.parse::<f64>() {
+            Ok(num) => ValR::Ok(JsonLikeHelper { data: A::number_f64(num) }),
+            Err(err) => ValR::Err(jaq_core::Error::str(format!("Invalid number format: {}", err.to_string()))),
+        }
+    }
+
+    fn from_map<I: IntoIterator<Item = (Self, Self)>>(iter: I) -> ValR<Self> {
         todo!()
     }
 
-    fn from_map<I: IntoIterator<Item = (Self, Self)>>(iter: I) -> jaq_core::ValR<Self> {
+    fn values(self) -> Box<dyn Iterator<Item = ValR<Self>>> {
         todo!()
     }
 
-    fn values(self) -> Box<dyn Iterator<Item = jaq_core::ValR<Self>>> {
+    fn index(self, index: &Self) -> ValR<Self> {
         todo!()
     }
 
-    fn index(self, index: &Self) -> jaq_core::ValR<Self> {
-        todo!()
-    }
-
-    fn range(self, range: jaq_core::val::Range<&Self>) -> jaq_core::ValR<Self> {
+    fn range(self, range: jaq_core::val::Range<&Self>) -> ValR<Self> {
         todo!()
     }
 

@@ -13,6 +13,8 @@ pub trait JsonLike<'json>: Sized {
     fn object(obj: Self::JsonObject) -> Self;
     fn array(arr: Vec<Self>) -> Self;
     fn string(s: Cow<'json, str>) -> Self;
+    // TODO: try from number
+    fn number_f64(n: f64) -> Self;
 
     // Operators
     fn as_array(&self) -> Option<&Vec<Self>>;
