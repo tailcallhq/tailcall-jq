@@ -20,7 +20,7 @@ where
         iter.into_iter().fold(ValR::Ok(Self(JsonLike::object(JsonObjectLike::new()))), |acc, (key, value)| {
             let key = match JsonLike::as_str(&key.0) {
                 Some(key) => key,
-                None => return ValR::Err(jaq_core::Error::str("The value cannot be converted to String")),
+                None => return ValR::Err(jaq_core::Error::str("Key cannot be converted to String")),
             };
 
             match acc {
@@ -39,7 +39,29 @@ where
     }
 
     fn index(self, index: &Self) -> ValR<Self> {
-        todo!()
+        if let Some(obj) = self.0.as_object() {
+            let key = match index.0.as_str() {
+                Some(key) => key,
+                None => return ValR::Err(jaq_core::Error::str("Key cannot be converted to String"))
+            };
+
+            match obj.get_key(key) {
+                Some(item) => ValR::Ok(JsonLikeHelper(item.clone())),
+                None => ValR::Err(jaq_core::Error::str("Index not found")),
+            }
+        } else if let Some(arr) = self.0.as_array() {
+            let index: u64 = match index.0.as_u64() {
+                Some(item) => item,
+                None => return ValR::Err(jaq_core::Error::str("Index cannot be converted to u64"))
+            };
+
+            match arr.get(index as usize) {
+                Some(item) => ValR::Ok(JsonLikeHelper(item.clone())),
+                None => ValR::Err(jaq_core::Error::str("Index not found")),
+            }
+        } else {
+            ValR::Err(jaq_core::Error::str("Value is not object or array"))
+        }
     }
 
     fn range(self, range: jaq_core::val::Range<&Self>) -> ValR<Self> {
