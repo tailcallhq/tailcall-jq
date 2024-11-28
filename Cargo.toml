@@ -11,18 +11,32 @@ indexmap = "2.6.0"
 serde_json_borrow = "0.7.1"
 nom = "8.0.0-alpha2"
 anyhow = "1.0.93"
+jaq-core = { version = "2" }
+jaq-std  = { version = "2" }
+jaq-json = { version = "1.0.0", features = ["serde_json"]}
+
+[dependencies]
+serde_json = { workspace = true }
+tailcall-template = { path = "./tailcall-template" }
+jaq-core = { workspace = true }
+jaq-std  = { workspace = true }
+jaq-json = { workspace = true }
 
 [dev-dependencies]
 gh-workflow = "0.4.1"
 pest = "2.7.14"
 pest_derive = {version = "2.7.14"}
 criterion = "0.5.1"
-serde_json = "1.0.133"
-nom = "8.0.0-alpha2"
+serde_json = { workspace = true }
+nom = { workspace = true }
 
 [workspace]
 members = ["tailcall-template"]
 
 [[bench]]
 name = "json_benches"
+harness = false
+
+[[bench]]
+name = "jaq"
 harness = false
