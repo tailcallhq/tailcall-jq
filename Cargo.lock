@@ -580,19 +580,31 @@ dependencies = [
 
 [[package]]
 name = "gh-workflow"
-version = "0.4.1"
+version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ae1ad3bcceabc26816ce586fece0653c5253300dcfa66c0a62efed1ccb5f745d"
+checksum = "884d539c124784282e81b2041b8f3cab7b97a2416d21bc844d67d0701ae562bd"
 dependencies = [
  "async-trait",
  "derive_more",
  "derive_setters",
+ "gh-workflow-macros",
  "indexmap",
  "merge",
  "serde",
  "serde_json",
  "serde_yaml",
  "strum_macros",
+]
+
+[[package]]
+name = "gh-workflow-macros"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eab3cd51f5773fbc381c177a7e447d24401a312b676314445eeda4647505797f"
+dependencies = [
+ "heck",
+ "quote",
+ "syn 2.0.87",
 ]
 
 [[package]]
