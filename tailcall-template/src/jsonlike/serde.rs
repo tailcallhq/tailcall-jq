@@ -23,6 +23,10 @@ impl<'obj> JsonObjectLike<'obj> for serde_json::Map<String, serde_json::Value> {
     fn insert_key(&mut self, key: &'obj str, value: Self::Value) {
         self.insert(key.to_owned(), value);
     }
+
+    fn remove_key(&mut self, key: &'obj str) -> Option<Self::Value> {
+        self.remove(key)
+    }
 }
 
 impl<'json> JsonLike<'json> for serde_json::Value {

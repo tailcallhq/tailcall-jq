@@ -41,6 +41,7 @@ pub trait JsonObjectLike<'obj>: Sized {
     fn with_capacity(n: usize) -> Self;
     fn get_key(&self, key: &str) -> Option<&Self::Value>;
     fn insert_key(&mut self, key: &'obj str, value: Self::Value);
+    fn remove_key(&mut self, key: &'obj str) -> Option<Self::Value>;
 }
 
 #[cfg(test)]

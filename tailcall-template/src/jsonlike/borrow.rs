@@ -24,6 +24,11 @@ impl<'ctx> JsonObjectLike<'ctx> for ObjectAsVec<'ctx> {
     fn insert_key(&mut self, key: &'ctx str, value: Self::Value) {
         self.insert(key, value);
     }
+
+    fn remove_key(&mut self, _key: &'ctx str) -> Option<Self::Value> {
+        // TODO: implement it
+        unimplemented!()
+    }
 }
 
 impl<'ctx> JsonLike<'ctx> for Value<'ctx> {

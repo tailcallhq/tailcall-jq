@@ -25,6 +25,10 @@ impl<'obj, Value: JsonLike<'obj> + Clone> JsonObjectLike<'obj> for IndexMap<Name
     fn insert_key(&mut self, key: &'obj str, value: Self::Value) {
         self.insert(Name::new(key), value);
     }
+
+    fn remove_key(&mut self, key: &'obj str) -> Option<Self::Value> {
+        self.swap_remove(key)
+    }
 }
 
 impl<'json> JsonLike<'json> for ConstValue {

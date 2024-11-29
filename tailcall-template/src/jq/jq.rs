@@ -36,9 +36,8 @@ where
 
     fn from_map<I: IntoIterator<Item = (Self, Self)>>(iter: I) -> ValR<Self> {
         iter.into_iter().fold(ValR::Ok(Self(JsonLike::object(JsonObjectLike::new()))), |acc, (key, value)| {
-            let key = match JsonLike::as_str(&key.0) {
-                Some(key) => key,
-                None => return ValR::Err(jaq_core::Error::str("Key cannot be converted to String")),
+            let Some(key) = JsonLike::as_str(&key.0) else {
+                return ValR::Err(jaq_core::Error::str("Key cannot be converted to String"))
             };
 
             match acc {
@@ -58,9 +57,8 @@ where
 
     fn index(self, index: &Self) -> ValR<Self> {
         if let Some(obj) = self.0.as_object() {
-            let key = match index.0.as_str() {
-                Some(key) => key,
-                None => return ValR::Err(jaq_core::Error::str("Key cannot be converted to String"))
+            let Some(key) = index.0.as_str() else {
+                return ValR::Err(jaq_core::Error::str("Key cannot be converted to String"))
             };
 
             match obj.get_key(key) {
@@ -68,9 +66,8 @@ where
                 None => ValR::Ok(JsonLikeHelper(JsonLike::null())),
             }
         } else if let Some(arr) = self.0.as_array() {
-            let index: u64 = match index.0.as_u64() {
-                Some(item) => item,
-                None => return ValR::Err(jaq_core::Error::str("Index cannot be converted to u64"))
+            let Some(index) = index.0.as_u64() else {
+                return ValR::Err(jaq_core::Error::str("Index cannot be converted to u64"))
             };
 
             match arr.get(index as usize) {
@@ -134,12 +131,53 @@ where
     }
 
     fn map_index<'a, I: Iterator<Item = jaq_core::ValX<'a, Self>>>(
-        self,
+        mut self,
         index: &Self,
         opt: jaq_core::path::Opt,
         f: impl Fn(Self) -> I,
     ) -> jaq_core::ValX<'a, Self> {
-        todo!()
+        if let Some(obj) = self.0.as_object_mut() {
+            let Some(key) = index.0.as_str() else {
+                return opt.fail(self, |_v| jaq_core::Exn::from(jaq_core::Error::str("Key cannot be converted to String")))
+            };
+
+            match obj.get_key(key) {
+                Some(e) => {
+                    match f(JsonLikeHelper(e.clone())).next().transpose()? {
+                        Some(value) => obj.insert_key(key, value.0),
+                        None => {obj.remove_key(key);},
+                    }
+                },
+                None => {
+                    if let Some(value) = f(JsonLikeHelper(JsonLike::null())).next().transpose()? {
+                        obj.insert_key(key, value.0);
+                    }
+                },
+            }
+            Ok(self)
+        } else if let Some(arr) = self.0.as_array_mut() {
+            let Some(index) = index.0.as_u64() else {
+                return opt.fail(self, |_v| jaq_core::Exn::from(jaq_core::Error::str("Index cannot be converted to u64")))
+            };
+            let abs_or = |i| {
+                abs_index(i, arr.len()).ok_or(jaq_core::Error::str(format!("index {i} out of bounds")))
+            };
+            // TODO: perform error handling
+            let index = match abs_or(index.try_into().unwrap()) {
+                Ok(index) => index,
+                Err(e) => return opt.fail(self, |_v| jaq_core::Exn::from(e)),
+            };
+
+            let item = arr[index].clone();
+            if let Some(value) = f(JsonLikeHelper(item)).next().transpose()? {
+                arr[index] = value.0;
+            } else {
+                arr.remove(index);
+            }
+            Ok(self)
+        } else {
+            return opt.fail(self, |_v| jaq_core::Exn::from(jaq_core::Error::str("Value is not object or array")))
+        }
     }
 
     fn map_range<'a, I: Iterator<Item = jaq_core::ValX<'a, Self>>>(
