@@ -143,12 +143,38 @@ where
     }
 
     fn map_range<'a, I: Iterator<Item = jaq_core::ValX<'a, Self>>>(
-        self,
+        mut self,
         range: jaq_core::val::Range<&Self>,
         opt: jaq_core::path::Opt,
         f: impl Fn(Self) -> I,
     ) -> jaq_core::ValX<'a, Self> {
-        todo!()
+        if let Some(arr) = self.0.as_array_mut() {
+            let len = arr.len();
+            let from: Result<Option<isize>, jaq_core::Error<JsonLikeHelper<A>>> = range.start.as_ref().as_ref().map(|i| i.as_i64()).flatten().map(|v| {
+                v.try_into().map_err(|_| jaq_core::Error::str("From cannot be converted to isize"))
+            }).transpose();
+            let upto: Result<Option<isize>, jaq_core::Error<JsonLikeHelper<A>>> = range.end.as_ref().as_ref().map(|i| i.as_i64()).flatten().map(|v| {
+                v.try_into().map_err(|_| jaq_core::Error::str("From cannot be converted to isize"))
+            }).transpose();
+
+            let (Ok(from), Ok(upto)) = (from, upto) else {
+                return opt.fail(self, |_v| jaq_core::Exn::from(jaq_core::Error::str("Failed to parse range")))
+            };
+
+            let from = abs_bound(from, len, 0);
+            let upto = abs_bound(upto, len, len);
+
+            let (skip, take) = skip_take(from, upto);
+
+            let arr_slice = arr.iter_mut().skip(skip).take(take).map(|a| a.clone()).collect::<Vec<_>>();
+
+            let new_values = f(JsonLikeHelper(JsonLike::array(arr_slice))).collect::<Result<Vec<_>, _>>()?;
+
+            arr.splice(skip..skip + take, new_values.into_iter().map(|a| a.0));
+            Ok(self)
+        } else {
+            opt.fail(self, |_v| jaq_core::Exn::from(jaq_core::Error::str("Value is not array")))
+        }
     }
 
     fn as_bool(&self) -> bool {
@@ -171,7 +197,7 @@ where
                 Some("false")
             }
         } else {
-            // TODO: fill the rest cases
+            // TODO: fill the rest cases if possible
             None
         }
     }
