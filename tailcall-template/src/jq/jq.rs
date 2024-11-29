@@ -1,9 +1,27 @@
+use std::ops::Deref;
+
 use jaq_core::ValR;
 
 use crate::jsonlike::{JsonLike, JsonObjectLike};
 
 #[derive(Clone, PartialEq, PartialOrd)]
 pub struct JsonLikeHelper<A: for<'a> JsonLike<'a>>(pub A);
+
+impl<A> Deref for JsonLikeHelper<A> where
+A: for<'a> JsonLike<'a> + Clone + PartialEq + PartialOrd {
+    type Target = A;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<A> From<A> for JsonLikeHelper<A> where
+A: for<'a> JsonLike<'a> + Clone + PartialEq + PartialOrd  {
+    fn from(value: A) -> Self {
+        Self(value)
+    }
+}
 
 impl<A> jaq_core::ValT for JsonLikeHelper<A>
 where
@@ -47,7 +65,7 @@ where
 
             match obj.get_key(key) {
                 Some(item) => ValR::Ok(JsonLikeHelper(item.clone())),
-                None => ValR::Err(jaq_core::Error::str("Index not found")),
+                None => ValR::Ok(JsonLikeHelper(JsonLike::null())),
             }
         } else if let Some(arr) = self.0.as_array() {
             let index: u64 = match index.0.as_u64() {
@@ -57,7 +75,7 @@ where
 
             match arr.get(index as usize) {
                 Some(item) => ValR::Ok(JsonLikeHelper(item.clone())),
-                None => ValR::Err(jaq_core::Error::str("Index not found")),
+                None => ValR::Ok(JsonLikeHelper(JsonLike::null())),
             }
         } else {
             ValR::Err(jaq_core::Error::str("Value is not object or array"))
@@ -65,7 +83,46 @@ where
     }
 
     fn range(self, range: jaq_core::val::Range<&Self>) -> ValR<Self> {
-        todo!()
+        let (from, upto) = (range.start, range.end);
+        if let Some(a) = self.0.clone().into_array() {
+            let len = a.len();
+
+            let from = from.as_ref().map(|i| i.as_i64()).flatten().ok_or_else(|| jaq_core::Error::str("From is not a Number"));
+            let upto = upto.as_ref().map(|i| i.as_i64()).flatten().ok_or_else(|| jaq_core::Error::str("Upto is not a Number"));
+
+            let (from, upto) = from.and_then(|from| Ok((from, upto?))).map(|(from, upto)| {
+                let from: Result<isize, _> = from.try_into().map_err(|_| jaq_core::Error::str("From cannot be converted to isize"));
+                let upto: Result<isize, _> = upto.try_into().map_err(|_| jaq_core::Error::str("Upto cannot be converted to isize"));
+                (from, upto)
+            })?;
+
+            from.and_then(|from| Ok((from, upto?))).map(|(from, upto)| {
+                let from = abs_bound(Some(from), len, 0);
+                let upto = abs_bound(Some(upto), len, len);
+                let (skip, take) = skip_take(from, upto);
+                a.iter().skip(skip).take(take).cloned().map(JsonLikeHelper).collect()
+            })
+        } else if let Some(s) = self.0.clone().as_str() {
+            let len = s.chars().count();
+
+            let from = from.as_ref().map(|i| i.as_i64()).flatten().ok_or_else(|| jaq_core::Error::str("From is not a Number"));
+            let upto = upto.as_ref().map(|i| i.as_i64()).flatten().ok_or_else(|| jaq_core::Error::str("Upto is not a Number"));
+
+            let (from, upto) = from.and_then(|from| Ok((from, upto?))).map(|(from, upto)| {
+                let from: Result<isize, _> = from.try_into().map_err(|_| jaq_core::Error::str("From cannot be converted to isize"));
+                let upto: Result<isize, _> = upto.try_into().map_err(|_| jaq_core::Error::str("Upto cannot be converted to isize"));
+                (from, upto)
+            })?;
+
+            from.and_then(|from| Ok((from, upto?))).map(|(from, upto)| {
+                let from = abs_bound(Some(from), len, 0);
+                let upto = abs_bound(Some(upto), len, len);
+                let (skip, take) = skip_take(from, upto);
+                JsonLikeHelper(JsonLike::string(s.chars().skip(skip).take(take).collect()))
+            })
+        } else {
+            Err(jaq_core::Error::str("Value is not object or array"))
+        }
     }
 
     fn map_values<'a, I: Iterator<Item = jaq_core::ValX<'a, Self>>>(
@@ -172,5 +229,30 @@ impl<A> std::ops::Neg for JsonLikeHelper<A> where A: for<'a> JsonLike<'a> {
     type Output = ValR<Self>;
     fn neg(self) -> Self::Output {
         todo!()
+    }
+}
+
+fn skip_take(from: usize, until: usize) -> (usize, usize) {
+    (from, if until > from { until - from } else { 0 })
+}
+
+/// If a range bound is given, absolutise and clip it between 0 and `len`,
+/// else return `default`.
+fn abs_bound(i: Option<isize>, len: usize, default: usize) -> usize {
+    i.map_or(default, |i| core::cmp::min(wrap(i, len).unwrap_or(0), len))
+}
+
+/// Absolutise an index and return result if it is inside [0, len).
+fn abs_index(i: isize, len: usize) -> Option<usize> {
+    wrap(i, len).filter(|i| *i < len)
+}
+
+fn wrap(i: isize, len: usize) -> Option<usize> {
+    if i >= 0 {
+        Some(i as usize)
+    } else if len < -i as usize {
+        None
+    } else {
+        Some(len - (-i as usize))
     }
 }
