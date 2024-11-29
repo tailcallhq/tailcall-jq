@@ -156,7 +156,18 @@ where
     }
 
     fn as_str(&self) -> Option<&str> {
-        todo!()
+        if let Some(s) = self.0.as_str() {
+            Some(s)
+        } else if let Some(b) = self.0.as_bool() {
+            if b {
+                Some("true")
+            } else {
+                Some("false")
+            }
+        } else {
+            // TODO: fill the rest cases
+            None
+        }
     }
 }
 
