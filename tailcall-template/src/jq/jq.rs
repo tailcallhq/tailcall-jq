@@ -5,10 +5,10 @@ use jaq_core::ValR;
 use crate::jsonlike::{JsonLike, JsonObjectLike};
 
 #[derive(Clone, PartialEq, PartialOrd)]
-pub struct JsonLikeHelper<A: for<'a> JsonLike<'a>>(pub A);
+pub struct JsonLikeHelper<A: for<'a> JsonLike<'a> + 'static>(pub A);
 
 impl<A> Deref for JsonLikeHelper<A> where
-A: for<'a> JsonLike<'a> + Clone + PartialEq + PartialOrd {
+A: for<'a> JsonLike<'a> + Clone + PartialEq + PartialOrd + 'static {
     type Target = A;
 
     fn deref(&self) -> &Self::Target {
@@ -52,7 +52,17 @@ where
     }
 
     fn values(self) -> Box<dyn Iterator<Item = ValR<Self>>> {
-        todo!()
+        if let Some(arr) = self.0.as_array() {
+            let owned_array: Vec<_> = arr.iter().cloned().collect();
+            Box::new(owned_array.into_iter().map(|a| Ok(JsonLikeHelper(a))))
+        } else if let Some(obj) = self.0.as_object() {
+            let owned_array: Vec<_> = obj.iter().map(|(_k, v)| v.clone()).collect();
+            Box::new(owned_array.into_iter().map(|a| Ok(JsonLikeHelper(a))))
+        } else {
+            Box::new(core::iter::once(ValR::Err(jaq_core::Error::str(
+                "Value is not object or array",
+            ))))
+        }
     }
 
     fn index(self, index: &Self) -> ValR<Self> {
