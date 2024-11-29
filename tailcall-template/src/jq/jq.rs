@@ -152,7 +152,13 @@ where
     }
 
     fn as_bool(&self) -> bool {
-        todo!()
+        if let Some(b) = self.0.as_bool() {
+            b
+        } else if self.0.is_null() {
+            false
+        } else {
+            true
+        }
     }
 
     fn as_str(&self) -> Option<&str> {
