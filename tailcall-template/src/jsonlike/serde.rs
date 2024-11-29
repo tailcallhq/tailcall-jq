@@ -27,6 +27,10 @@ impl<'obj> JsonObjectLike<'obj> for serde_json::Map<String, serde_json::Value> {
     fn remove_key(&mut self, key: &'obj str) -> Option<Self::Value> {
         self.remove(key)
     }
+
+    fn iter(&'obj self) -> impl Iterator<Item = (&'obj str, &'obj Self::Value)> {
+        self.iter().map(|(k, v)| (k.as_str(), v))
+    }
 }
 
 impl<'json> JsonLike<'json> for serde_json::Value {
@@ -121,6 +125,16 @@ impl<'json> JsonLike<'json> for serde_json::Value {
 
     fn object(obj: Self::JsonObject) -> Self {
         serde_json::Value::Object(obj)
+    }
+
+    fn obj(pairs: Vec<(&'json str, Self)>) -> Self {
+        let mut map = serde_json::Map::new();
+
+        for (k, v) in pairs {
+            map.insert(k.to_string(), v);
+        }
+
+        serde_json::Value::Object(map)
     }
 
     fn array(arr: Vec<Self>) -> Self {

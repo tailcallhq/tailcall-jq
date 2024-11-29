@@ -29,6 +29,10 @@ impl<'obj, Value: JsonLike<'obj> + Clone> JsonObjectLike<'obj> for IndexMap<Name
     fn remove_key(&mut self, key: &'obj str) -> Option<Self::Value> {
         self.swap_remove(key)
     }
+
+    fn iter(&'obj self) -> impl Iterator<Item = (&'obj str, &'obj Self::Value)> {
+        self.iter().map(|(k, v)| (k.as_str(), v))
+    }
 }
 
 impl<'json> JsonLike<'json> for ConstValue {
@@ -148,6 +152,14 @@ impl<'json> JsonLike<'json> for ConstValue {
 
     fn object(obj: Self::JsonObject) -> Self {
         ConstValue::Object(obj)
+    }
+
+    fn obj(pairs: Vec<(&'json str, Self)>) -> Self {
+        let mut map = IndexMap::new();
+        for (k, v) in pairs {
+            map.insert(async_graphql::Name::new(k), v);
+        }
+        ConstValue::Object(map)
     }
 
     fn array(arr: Vec<Self>) -> Self {

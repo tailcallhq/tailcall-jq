@@ -29,6 +29,10 @@ impl<'ctx> JsonObjectLike<'ctx> for ObjectAsVec<'ctx> {
         // TODO: implement it
         unimplemented!()
     }
+
+    fn iter(&'ctx self) -> impl Iterator<Item = (&'ctx str, &'ctx Self::Value)> {
+        self.iter()
+    }
 }
 
 impl<'ctx> JsonLike<'ctx> for Value<'ctx> {
@@ -40,6 +44,10 @@ impl<'ctx> JsonLike<'ctx> for Value<'ctx> {
 
     fn object(obj: Self::JsonObject) -> Self {
         Value::Object(obj)
+    }
+
+    fn obj(pairs: Vec<(&'ctx str, Self)>) -> Self {
+        Value::Object(ObjectAsVec::from(pairs))
     }
 
     fn array(arr: Vec<Self>) -> Self {

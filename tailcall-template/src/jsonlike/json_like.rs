@@ -11,6 +11,8 @@ pub trait JsonLike<'json>: Sized {
     // Constructors
     fn null() -> Self;
     fn object(obj: Self::JsonObject) -> Self;
+    fn obj(pairs: Vec<(&'json str, Self)>) -> Self;
+
     fn array(arr: Vec<Self>) -> Self;
     fn string(s: Cow<'json, str>) -> Self;
     // TODO: try from number
@@ -42,6 +44,7 @@ pub trait JsonObjectLike<'obj>: Sized {
     fn get_key(&self, key: &str) -> Option<&Self::Value>;
     fn insert_key(&mut self, key: &'obj str, value: Self::Value);
     fn remove_key(&mut self, key: &'obj str) -> Option<Self::Value>;
+    fn iter(&'obj self) -> impl Iterator<Item = (&'obj str, &'obj Self::Value)>;
 }
 
 #[cfg(test)]

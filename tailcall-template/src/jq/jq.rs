@@ -127,7 +127,16 @@ where
         opt: jaq_core::path::Opt,
         f: impl Fn(Self) -> I,
     ) -> jaq_core::ValX<'a, Self> {
-        todo!()
+        if let Some(arr) = self.0.as_array() {
+            let iter = arr.iter().map(|a| JsonLikeHelper(a.clone())).flat_map(f);
+            Ok(iter.collect::<Result<_, _>>()?)
+        } else if let Some(obj) = self.0.as_object() {
+            let iter = obj.iter().filter_map(|(k, v)| f(JsonLikeHelper(v.clone())).next().map(|v| Ok((k, v?.0))));
+            let obj = A::obj(iter.collect::<Result<Vec<_>, jaq_core::Exn<_>>>()?);
+            Ok(JsonLikeHelper(obj))
+        } else {
+            return opt.fail(self, |_v| jaq_core::Exn::from(jaq_core::Error::str("Value is not object or array")))
+        }
     }
 
     fn map_index<'a, I: Iterator<Item = jaq_core::ValX<'a, Self>>>(
