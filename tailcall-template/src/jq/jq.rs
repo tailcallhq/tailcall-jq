@@ -1,17 +1,13 @@
-use std::{borrow::Cow, ops::Deref};
+use std::{borrow::Cow, fmt::Debug, ops::Deref};
 
 use jaq_core::ValR;
 
-use crate::jsonlike::{JsonLike, JsonObjectLike};
+use crate::jsonlike::{JsonLike, JsonLikeOwned, JsonObjectLike};
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct JsonLikeHelper<'json,
-    A: JsonLike<'json> + std::fmt::Display + std::clone::Clone + std::cmp::PartialEq,
->(pub Cow<'json, A>);
+pub struct JsonLikeHelper<'json, A: JsonLikeOwned + Clone + PartialEq>(pub Cow<'json, A>);
 
-impl<'json, A> Deref for JsonLikeHelper<'json, A>
-where
-    A: JsonLike<'json> + std::fmt::Display + std::clone::Clone + std::cmp::PartialEq,
+impl<'json, A: JsonLikeOwned + Clone + PartialEq> Deref for JsonLikeHelper<'json, A>
 {
     type Target = A;
 
@@ -20,18 +16,14 @@ where
     }
 }
 
-impl<'json, A> From<A> for JsonLikeHelper<'json, A>
-where
-    A: JsonLike<'json> + std::fmt::Display + std::clone::Clone + std::cmp::PartialEq,
+impl<'json, A: JsonLikeOwned + Clone + PartialEq> From<A> for JsonLikeHelper<'json, A>
 {
     fn from(value: A) -> Self {
         Self(Cow::Owned(value))
     }
 }
 
-impl<'json, A> jaq_core::ValT for JsonLikeHelper<'json, A>
-where
-    A: JsonLike<'json> + std::fmt::Display + std::clone::Clone + std::cmp::PartialEq,
+impl<'json, A: JsonLikeOwned + Clone + PartialEq + std::fmt::Display> jaq_core::ValT for JsonLikeHelper<'json, A>
 {
     fn from_num(n: &str) -> ValR<Self> {
         match n.parse::<f64>() {
@@ -62,17 +54,7 @@ where
     }
 
     fn values(self) -> Box<dyn Iterator<Item = ValR<Self>>> {
-        if let Some(arr) = self.0.as_ref().as_array() {
-            let owned_array: Vec<_> = arr.iter().cloned().collect();
-            Box::new(owned_array.into_iter().map(|a| Ok(JsonLikeHelper(Cow::Owned(a)))))
-        } else if let Some(obj) = self.0.as_ref().as_object() {
-            let owned_array: Vec<_> = obj.iter().map(|(_k, v)| v.clone()).collect();
-            Box::new(owned_array.into_iter().map(|a| Ok(JsonLikeHelper(Cow::Owned(a)))))
-        } else {
-            Box::new(core::iter::once(ValR::Err(jaq_core::Error::str(
-                "Value is not object or array",
-            ))))
-        }
+        unimplemented!()
     }
 
     fn index(self, index: &Self) -> ValR<Self> {
@@ -101,7 +83,7 @@ where
 
     fn range(self, range: jaq_core::val::Range<&Self>) -> ValR<Self> {
         let (from, upto) = (range.start, range.end);
-        if let Some(a) = self.0.into_owned().into_array() {
+        if let Some(a) = self.0.clone().into_owned().into_array() {
             let len = a.len();
 
             let from = from
@@ -138,7 +120,7 @@ where
                     .map(|v| JsonLikeHelper(Cow::Owned(v)))
                     .collect()
             })
-        } else if let Some(s) = self.0.as_ref().as_str() {
+        } else if let Some(s) = &self.0.as_ref().as_str() {
             let len = s.chars().count();
 
             let from = from
@@ -180,10 +162,10 @@ where
         opt: jaq_core::path::Opt,
         f: impl Fn(Self) -> I,
     ) -> jaq_core::ValX<'a, Self> {
-        if let Some(arr) = self.0.as_ref().as_array() {
+        if let Some(arr) = self.0.as_array() {
             let iter = arr.iter().map(|a| JsonLikeHelper(Cow::Owned(a.clone()))).flat_map(f);
             Ok(iter.collect::<Result<_, _>>()?)
-        } else if let Some(obj) = self.0.clone().as_ref().as_object() {
+        } else if let Some(obj) = self.0.as_object() {
             let iter = obj
                 .iter()
                 .filter_map(|(k, v)| f(JsonLikeHelper(Cow::Owned(v.clone()))).next().map(|v| Ok((k, v?.0.into_owned()))));
@@ -340,9 +322,7 @@ where
     }
 }
 
-impl<'json, A> PartialOrd for JsonLikeHelper<'json, A>
-where
-    A: JsonLike<'json> + std::fmt::Display + std::clone::Clone + std::cmp::PartialEq,
+impl<'json, A: JsonLikeOwned + Clone + PartialEq + std::fmt::Display> PartialOrd for JsonLikeHelper<'json, A>
 {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         // TODO: compare properly
@@ -350,55 +330,43 @@ where
     }
 }
 
-impl<'json, A> std::fmt::Display for JsonLikeHelper<'json, A>
-where
-    A: JsonLike<'json> + std::fmt::Display + std::clone::Clone + std::cmp::PartialEq,
+impl<'json, A: JsonLikeOwned + Clone + PartialEq + std::fmt::Display> std::fmt::Display for JsonLikeHelper<'json, A>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.0.fmt(f)
     }
 }
 
-impl<'json, A> From<bool> for JsonLikeHelper<'json, A>
-where
-    A: JsonLike<'json> + std::fmt::Display + std::clone::Clone + std::cmp::PartialEq,
+impl<'json, A: JsonLikeOwned + Clone + PartialEq> From<bool> for JsonLikeHelper<'json, A>
 {
     fn from(value: bool) -> Self {
         todo!()
     }
 }
 
-impl<'json, A> From<isize> for JsonLikeHelper<'json, A>
-where
-    A: JsonLike<'json> + std::fmt::Display + std::clone::Clone + std::cmp::PartialEq,
+impl<'json, A: JsonLikeOwned + Clone + PartialEq> From<isize> for JsonLikeHelper<'json, A>
 {
     fn from(value: isize) -> Self {
         todo!()
     }
 }
 
-impl<'json, A> From<String> for JsonLikeHelper<'json, A>
-where
-    A: JsonLike<'json> + std::fmt::Display + std::clone::Clone + std::cmp::PartialEq,
+impl<'json, A: JsonLikeOwned + Clone + PartialEq> From<String> for JsonLikeHelper<'json, A>
 {
     fn from(value: String) -> Self {
         JsonLikeHelper(Cow::Owned(JsonLike::string(Cow::Owned(value))))
     }
 }
 
-impl<'json, A> FromIterator<Self> for JsonLikeHelper<'json, A>
-where
-    A: JsonLike<'json> + std::fmt::Display + std::clone::Clone + std::cmp::PartialEq,
+impl<'json, A: JsonLikeOwned + Clone + PartialEq> FromIterator<Self> for JsonLikeHelper<'json, A>
 {
     fn from_iter<T: IntoIterator<Item = Self>>(iter: T) -> Self {
         todo!()
     }
 }
-impl<'json, A> std::ops::Add for JsonLikeHelper<'json, A>
-where
-    A: JsonLike<'json> + std::fmt::Display + std::clone::Clone + std::cmp::PartialEq,
+impl<'json, A: JsonLikeOwned + Clone + PartialEq> std::ops::Add for JsonLikeHelper<'json, A>
 {
-    type Output = ValR<JsonLikeHelper<'json, A>>;
+    type Output = ValR<Self>;
     fn add(mut self, rhs: Self) -> Self::Output {
         if self.0.as_ref().is_null() && rhs.0.as_ref().is_null() {
             return Ok(self);
@@ -423,9 +391,7 @@ where
     }
 }
 
-impl<'json, A> std::ops::Sub for JsonLikeHelper<'json, A>
-where
-    A: JsonLike<'json> + std::fmt::Display + std::clone::Clone + std::cmp::PartialEq,
+impl<'json, A: JsonLikeOwned + Clone + PartialEq> std::ops::Sub for JsonLikeHelper<'json, A>
 {
     type Output = ValR<Self>;
     fn sub(self, rhs: Self) -> Self::Output {
@@ -433,9 +399,7 @@ where
     }
 }
 
-impl<'json, A> std::ops::Mul for JsonLikeHelper<'json, A>
-where
-    A: JsonLike<'json> + std::fmt::Display + std::clone::Clone + std::cmp::PartialEq,
+impl<'json, A: JsonLikeOwned + Clone + PartialEq> std::ops::Mul for JsonLikeHelper<'json, A>
 {
     type Output = ValR<Self>;
     fn mul(self, rhs: Self) -> Self::Output {
@@ -443,9 +407,7 @@ where
     }
 }
 
-impl<'json, A> std::ops::Div for JsonLikeHelper<'json, A>
-where
-    A: JsonLike<'json> + std::fmt::Display + std::clone::Clone + std::cmp::PartialEq,
+impl<'json, A: JsonLikeOwned + Clone + PartialEq> std::ops::Div for JsonLikeHelper<'json, A>
 {
     type Output = ValR<Self>;
     fn div(self, rhs: Self) -> Self::Output {
@@ -453,9 +415,7 @@ where
     }
 }
 
-impl<'json, A> std::ops::Rem for JsonLikeHelper<'json, A>
-where
-    A: JsonLike<'json> + std::fmt::Display + std::clone::Clone + std::cmp::PartialEq,
+impl<'json, A: JsonLikeOwned + Clone + PartialEq> std::ops::Rem for JsonLikeHelper<'json, A>
 {
     type Output = ValR<Self>;
     fn rem(self, rhs: Self) -> Self::Output {
@@ -463,9 +423,7 @@ where
     }
 }
 
-impl<'json, A> std::ops::Neg for JsonLikeHelper<'json, A>
-where
-    A: JsonLike<'json> + std::fmt::Display + std::clone::Clone + std::cmp::PartialEq,
+impl<'json, A: JsonLikeOwned + Clone + PartialEq> std::ops::Neg for JsonLikeHelper<'json, A>
 {
     type Output = ValR<Self>;
     fn neg(self) -> Self::Output {

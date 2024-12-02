@@ -218,21 +218,21 @@ fn bench_jq(data: &serde_json::Value, filter: &jaq_core::Filter<Native<Val>>, ex
     assert_eq!(out.next(), None);
 }
 
-fn bench_jsonlike(
-    data: &serde_json::Value,
-    filter: &jaq_core::Filter<Native<JsonLikeHelper<serde_json::Value>>>,
+fn bench_jsonlike<'a>(
+    data: &'a serde_json::Value,
+    filter: &jaq_core::Filter<Native<JsonLikeHelper<'a, serde_json::Value>>>,
     expected: &str,
 ) {
     let inputs = RcIter::new(core::iter::empty());
 
     // iterator over the output values
-    let mut out = filter.run((Ctx::new([], &inputs), JsonLikeHelper(data.clone())));
+    let mut out = filter.run((Ctx::new([], &inputs), JsonLikeHelper(std::borrow::Cow::Borrowed(&data))));
 
     assert_eq!(
         out.next(),
-        Some(Ok(JsonLikeHelper(serde_json::Value::String(
+        Some(Ok(JsonLikeHelper(std::borrow::Cow::Owned(serde_json::Value::String(
             expected.to_string()
-        ))))
+        )))))
     );
     assert_eq!(out.next(), None);
 }

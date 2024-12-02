@@ -30,6 +30,19 @@ criterion = "0.5.1"
 serde_json = { workspace = true }
 nom = { workspace = true }
 
+[profile.release]
+opt-level = 3
+codegen-units = 1
+panic = 'abort'
+lto = 'fat'
+debug = false
+incremental = false
+overflow-checks = false
+
+[profile.benchmark]
+inherits = "release"
+debug = true
+
 [workspace]
 members = ["tailcall-template"]
 
