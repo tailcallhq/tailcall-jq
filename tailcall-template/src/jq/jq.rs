@@ -1,41 +1,33 @@
-use std::ops::Deref;
+use std::{borrow::Cow, fmt::Debug, ops::Deref};
 
 use jaq_core::ValR;
 
-use crate::jsonlike::{JsonLike, JsonObjectLike};
+use crate::jsonlike::{JsonLike, JsonLikeOwned, JsonObjectLike};
 
-#[derive(Clone, PartialEq)]
-pub struct JsonLikeHelper<
-    A: for<'a> JsonLike<'a> + std::fmt::Display + std::clone::Clone + std::cmp::PartialEq + 'static,
->(pub A);
+#[derive(Debug, Clone, PartialEq)]
+pub struct JsonLikeHelper<'json, A: JsonLikeOwned + Clone + PartialEq>(pub Cow<'json, A>);
 
-impl<A> Deref for JsonLikeHelper<A>
-where
-    A: for<'a> JsonLike<'a> + std::fmt::Display + std::clone::Clone + std::cmp::PartialEq + 'static,
+impl<'json, A: JsonLikeOwned + Clone + PartialEq> Deref for JsonLikeHelper<'json, A>
 {
     type Target = A;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        self.0.as_ref()
     }
 }
 
-impl<A> From<A> for JsonLikeHelper<A>
-where
-    A: for<'a> JsonLike<'a> + std::fmt::Display + std::clone::Clone + std::cmp::PartialEq + 'static,
+impl<'json, A: JsonLikeOwned + Clone + PartialEq> From<A> for JsonLikeHelper<'json, A>
 {
     fn from(value: A) -> Self {
-        Self(value)
+        Self(Cow::Owned(value))
     }
 }
 
-impl<A> jaq_core::ValT for JsonLikeHelper<A>
-where
-    A: for<'a> JsonLike<'a> + std::fmt::Display + std::clone::Clone + std::cmp::PartialEq + 'static,
+impl<'json, A: JsonLikeOwned + Clone + PartialEq + std::fmt::Display> jaq_core::ValT for JsonLikeHelper<'json, A>
 {
     fn from_num(n: &str) -> ValR<Self> {
         match n.parse::<f64>() {
-            Ok(num) => ValR::Ok(JsonLikeHelper(A::number_f64(num))),
+            Ok(num) => ValR::Ok(JsonLikeHelper(Cow::Owned(A::number_f64(num)))),
             Err(err) => ValR::Err(jaq_core::Error::str(format!(
                 "Invalid number format: {}",
                 err.to_string()
@@ -45,16 +37,14 @@ where
 
     fn from_map<I: IntoIterator<Item = (Self, Self)>>(iter: I) -> ValR<Self> {
         iter.into_iter().fold(
-            ValR::Ok(Self(JsonLike::object(JsonObjectLike::new()))),
+            ValR::Ok(Self(Cow::Owned(JsonLike::object(JsonObjectLike::new())))),
             |acc, (key, value)| {
-                let Some(key) = JsonLike::as_str(&key.0) else {
-                    return ValR::Err(jaq_core::Error::str("Key cannot be converted to String"));
-                };
-
                 match acc {
                     Ok(mut acc) => {
-                        let acc_mut = JsonLike::as_object_mut(&mut acc.0).unwrap();
-                        acc_mut.insert_key(key, value.0);
+                        let key_str = key.0.as_str().ok_or_else(||
+                            jaq_core::Error::str("Key cannot be converted to String"))?;
+                        let acc_mut = JsonLike::as_object_mut(acc.0.to_mut()).unwrap();
+                        acc_mut.insert_key(key_str, value.0.into_owned());
                         ValR::Ok(acc)
                     }
                     Err(err) => ValR::Err(err),
@@ -64,37 +54,27 @@ where
     }
 
     fn values(self) -> Box<dyn Iterator<Item = ValR<Self>>> {
-        if let Some(arr) = self.0.as_array() {
-            let owned_array: Vec<_> = arr.iter().cloned().collect();
-            Box::new(owned_array.into_iter().map(|a| Ok(JsonLikeHelper(a))))
-        } else if let Some(obj) = self.0.as_object() {
-            let owned_array: Vec<_> = obj.iter().map(|(_k, v)| v.clone()).collect();
-            Box::new(owned_array.into_iter().map(|a| Ok(JsonLikeHelper(a))))
-        } else {
-            Box::new(core::iter::once(ValR::Err(jaq_core::Error::str(
-                "Value is not object or array",
-            ))))
-        }
+        unimplemented!()
     }
 
     fn index(self, index: &Self) -> ValR<Self> {
-        if let Some(obj) = self.0.as_object() {
-            let Some(key) = index.0.as_str() else {
+        if let Some(obj) = self.0.as_ref().as_object() {
+            let Some(key) = index.0.as_ref().as_str() else {
                 return ValR::Err(jaq_core::Error::str("Key cannot be converted to String"));
             };
 
             match obj.get_key(key) {
-                Some(item) => ValR::Ok(JsonLikeHelper(item.clone())),
-                None => ValR::Ok(JsonLikeHelper(JsonLike::null())),
+                Some(item) => ValR::Ok(JsonLikeHelper(Cow::Owned(item.clone()))),
+                None => ValR::Ok(JsonLikeHelper(Cow::Owned(JsonLike::null()))),
             }
-        } else if let Some(arr) = self.0.as_array() {
-            let Some(index) = index.0.as_u64() else {
+        } else if let Some(arr) = self.0.as_ref().as_array() {
+            let Some(index) = index.0.as_ref().as_u64() else {
                 return ValR::Err(jaq_core::Error::str("Index cannot be converted to u64"));
             };
 
             match arr.get(index as usize) {
-                Some(item) => ValR::Ok(JsonLikeHelper(item.clone())),
-                None => ValR::Ok(JsonLikeHelper(JsonLike::null())),
+                Some(item) => ValR::Ok(JsonLikeHelper(Cow::Owned(item.clone()))),
+                None => ValR::Ok(JsonLikeHelper(Cow::Owned(JsonLike::null()))),
             }
         } else {
             ValR::Err(jaq_core::Error::str("Value is not object or array"))
@@ -103,7 +83,7 @@ where
 
     fn range(self, range: jaq_core::val::Range<&Self>) -> ValR<Self> {
         let (from, upto) = (range.start, range.end);
-        if let Some(a) = self.0.clone().into_array() {
+        if let Some(a) = self.0.clone().into_owned().into_array() {
             let len = a.len();
 
             let from = from
@@ -137,10 +117,10 @@ where
                     .skip(skip)
                     .take(take)
                     .cloned()
-                    .map(JsonLikeHelper)
+                    .map(|v| JsonLikeHelper(Cow::Owned(v)))
                     .collect()
             })
-        } else if let Some(s) = self.0.clone().as_str() {
+        } else if let Some(s) = &self.0.as_ref().as_str() {
             let len = s.chars().count();
 
             let from = from
@@ -170,7 +150,7 @@ where
                 let from = abs_bound(Some(from), len, 0);
                 let upto = abs_bound(Some(upto), len, len);
                 let (skip, take) = skip_take(from, upto);
-                JsonLikeHelper(JsonLike::string(s.chars().skip(skip).take(take).collect()))
+                JsonLikeHelper(Cow::Owned(JsonLike::string(s.chars().skip(skip).take(take).collect())))
             })
         } else {
             Err(jaq_core::Error::str("Value is not object or array"))
@@ -183,14 +163,14 @@ where
         f: impl Fn(Self) -> I,
     ) -> jaq_core::ValX<'a, Self> {
         if let Some(arr) = self.0.as_array() {
-            let iter = arr.iter().map(|a| JsonLikeHelper(a.clone())).flat_map(f);
+            let iter = arr.iter().map(|a| JsonLikeHelper(Cow::Owned(a.clone()))).flat_map(f);
             Ok(iter.collect::<Result<_, _>>()?)
         } else if let Some(obj) = self.0.as_object() {
             let iter = obj
                 .iter()
-                .filter_map(|(k, v)| f(JsonLikeHelper(v.clone())).next().map(|v| Ok((k, v?.0))));
+                .filter_map(|(k, v)| f(JsonLikeHelper(Cow::Owned(v.clone()))).next().map(|v| Ok((k, v?.0.into_owned()))));
             let obj = A::obj(iter.collect::<Result<Vec<_>, jaq_core::Exn<_>>>()?);
-            Ok(JsonLikeHelper(obj))
+            Ok(JsonLikeHelper(Cow::Owned(obj)))
         } else {
             return opt.fail(self, |_v| {
                 jaq_core::Exn::from(jaq_core::Error::str("Value is not object or array"))
@@ -204,29 +184,29 @@ where
         opt: jaq_core::path::Opt,
         f: impl Fn(Self) -> I,
     ) -> jaq_core::ValX<'a, Self> {
-        if let Some(obj) = self.0.as_object_mut() {
-            let Some(key) = index.0.as_str() else {
+        if let Some(obj) = self.0.to_mut().as_object_mut() {
+            let Some(key) = index.0.as_ref().as_str() else {
                 return opt.fail(self, |_v| {
                     jaq_core::Exn::from(jaq_core::Error::str("Key cannot be converted to String"))
                 });
             };
 
             match obj.get_key(key) {
-                Some(e) => match f(JsonLikeHelper(e.clone())).next().transpose()? {
-                    Some(value) => obj.insert_key(key, value.0),
+                Some(e) => match f(JsonLikeHelper(Cow::Owned(e.clone()))).next().transpose()? {
+                    Some(value) => obj.insert_key(key, value.0.into_owned()),
                     None => {
                         obj.remove_key(key);
                     }
                 },
                 None => {
-                    if let Some(value) = f(JsonLikeHelper(JsonLike::null())).next().transpose()? {
-                        obj.insert_key(key, value.0);
+                    if let Some(value) = f(JsonLikeHelper(Cow::Owned(JsonLike::null()))).next().transpose()? {
+                        obj.insert_key(key, value.0.into_owned());
                     }
                 }
             }
             Ok(self)
-        } else if let Some(arr) = self.0.as_array_mut() {
-            let Some(index) = index.0.as_u64() else {
+        } else if let Some(arr) = self.0.to_mut().as_array_mut() {
+            let Some(index) = index.0.as_ref().as_u64() else {
                 return opt.fail(self, |_v| {
                     jaq_core::Exn::from(jaq_core::Error::str("Index cannot be converted to u64"))
                 });
@@ -242,8 +222,8 @@ where
             };
 
             let item = arr[index].clone();
-            if let Some(value) = f(JsonLikeHelper(item)).next().transpose()? {
-                arr[index] = value.0;
+            if let Some(value) = f(JsonLikeHelper(Cow::Owned(item))).next().transpose()? {
+                arr[index] = value.0.into_owned();
             } else {
                 arr.remove(index);
             }
@@ -261,7 +241,7 @@ where
         opt: jaq_core::path::Opt,
         f: impl Fn(Self) -> I,
     ) -> jaq_core::ValX<'a, Self> {
-        if let Some(arr) = self.0.as_array_mut() {
+        if let Some(arr) = self.0.to_mut().as_array_mut() {
             let len = arr.len();
             let from: Result<Option<isize>, jaq_core::Error<JsonLikeHelper<A>>> = range
                 .start
@@ -305,9 +285,9 @@ where
                 .collect::<Vec<_>>();
 
             let new_values =
-                f(JsonLikeHelper(JsonLike::array(arr_slice))).collect::<Result<Vec<_>, _>>()?;
+                f(JsonLikeHelper(Cow::Owned(JsonLike::array(arr_slice)))).collect::<Result<Vec<_>, _>>()?;
 
-            arr.splice(skip..skip + take, new_values.into_iter().map(|a| a.0));
+            arr.splice(skip..skip + take, new_values.into_iter().map(|a| a.0.into_owned()));
             Ok(self)
         } else {
             opt.fail(self, |_v| {
@@ -317,9 +297,9 @@ where
     }
 
     fn as_bool(&self) -> bool {
-        if let Some(b) = self.0.as_bool() {
+        if let Some(b) = self.0.as_ref().as_bool() {
             b
-        } else if self.0.is_null() {
+        } else if self.0.as_ref().is_null() {
             false
         } else {
             true
@@ -327,9 +307,9 @@ where
     }
 
     fn as_str(&self) -> Option<&str> {
-        if let Some(s) = self.0.as_str() {
+        if let Some(s) = self.0.as_ref().as_str() {
             Some(s)
-        } else if let Some(b) = self.0.as_bool() {
+        } else if let Some(b) = self.0.as_ref().as_bool() {
             if b {
                 Some("true")
             } else {
@@ -342,9 +322,7 @@ where
     }
 }
 
-impl<A> PartialOrd for JsonLikeHelper<A>
-where
-    A: for<'a> JsonLike<'a> + std::fmt::Display + std::clone::Clone + std::cmp::PartialEq + 'static,
+impl<'json, A: JsonLikeOwned + Clone + PartialEq + std::fmt::Display> PartialOrd for JsonLikeHelper<'json, A>
 {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
         // TODO: compare properly
@@ -352,64 +330,68 @@ where
     }
 }
 
-impl<A> std::fmt::Display for JsonLikeHelper<A>
-where
-    A: for<'a> JsonLike<'a> + std::fmt::Display + std::clone::Clone + std::cmp::PartialEq + 'static,
+impl<'json, A: JsonLikeOwned + Clone + PartialEq + std::fmt::Display> std::fmt::Display for JsonLikeHelper<'json, A>
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.0.fmt(f)
     }
 }
 
-impl<A> From<bool> for JsonLikeHelper<A>
-where
-    A: for<'a> JsonLike<'a> + std::fmt::Display + std::clone::Clone + std::cmp::PartialEq + 'static,
+impl<'json, A: JsonLikeOwned + Clone + PartialEq> From<bool> for JsonLikeHelper<'json, A>
 {
     fn from(value: bool) -> Self {
         todo!()
     }
 }
 
-impl<A> From<isize> for JsonLikeHelper<A>
-where
-    A: for<'a> JsonLike<'a> + std::fmt::Display + std::clone::Clone + std::cmp::PartialEq + 'static,
+impl<'json, A: JsonLikeOwned + Clone + PartialEq> From<isize> for JsonLikeHelper<'json, A>
 {
     fn from(value: isize) -> Self {
         todo!()
     }
 }
 
-impl<A> From<String> for JsonLikeHelper<A>
-where
-    A: for<'a> JsonLike<'a> + std::fmt::Display + std::clone::Clone + std::cmp::PartialEq + 'static,
+impl<'json, A: JsonLikeOwned + Clone + PartialEq> From<String> for JsonLikeHelper<'json, A>
 {
     fn from(value: String) -> Self {
-        todo!()
+        JsonLikeHelper(Cow::Owned(JsonLike::string(Cow::Owned(value))))
     }
 }
 
-impl<A> FromIterator<Self> for JsonLikeHelper<A>
-where
-    A: for<'a> JsonLike<'a> + std::fmt::Display + std::clone::Clone + std::cmp::PartialEq + 'static,
+impl<'json, A: JsonLikeOwned + Clone + PartialEq> FromIterator<Self> for JsonLikeHelper<'json, A>
 {
     fn from_iter<T: IntoIterator<Item = Self>>(iter: T) -> Self {
         todo!()
     }
 }
-
-impl<A> std::ops::Add for JsonLikeHelper<A>
-where
-    A: for<'a> JsonLike<'a> + std::fmt::Display + std::clone::Clone + std::cmp::PartialEq + 'static,
+impl<'json, A: JsonLikeOwned + Clone + PartialEq> std::ops::Add for JsonLikeHelper<'json, A>
 {
     type Output = ValR<Self>;
-    fn add(self, rhs: Self) -> Self::Output {
-        todo!()
+    fn add(mut self, rhs: Self) -> Self::Output {
+        if self.0.as_ref().is_null() && rhs.0.as_ref().is_null() {
+            return Ok(self);
+        } else if let (Some(l), Some(r)) = (self.0.as_ref().as_f64(), rhs.0.as_ref().as_f64()) {
+            return Ok(JsonLikeHelper(Cow::Owned(A::number_f64(l + r))));
+        } else if let (Some(l), Some(r)) = (self.0.as_ref().as_str(), rhs.0.as_ref().as_str()) {
+            let mut result = String::from(l);
+            result.push_str(r);
+            return Ok(JsonLikeHelper(Cow::Owned(A::string(result.into()))));
+        } else if let (Some(l), Some(r)) = (self.0.to_mut().as_array_mut(), rhs.0.as_ref().as_array()) {
+            l.extend(r.iter().cloned());
+            return Ok(self);
+        } else if let Some(obj_mut) = self.0.to_mut().as_object_mut() {
+            if let Some(rhs_obj) = rhs.0.as_ref().as_object() {
+                for (k, v) in rhs_obj.iter() {
+                    obj_mut.insert_key(k, v.clone());
+                }
+                return Ok(self);
+            }
+        }
+        Err(jaq_core::Error::str("Cannot add values of different types"))
     }
 }
 
-impl<A> std::ops::Sub for JsonLikeHelper<A>
-where
-    A: for<'a> JsonLike<'a> + std::fmt::Display + std::clone::Clone + std::cmp::PartialEq + 'static,
+impl<'json, A: JsonLikeOwned + Clone + PartialEq> std::ops::Sub for JsonLikeHelper<'json, A>
 {
     type Output = ValR<Self>;
     fn sub(self, rhs: Self) -> Self::Output {
@@ -417,9 +399,7 @@ where
     }
 }
 
-impl<A> std::ops::Mul for JsonLikeHelper<A>
-where
-    A: for<'a> JsonLike<'a> + std::fmt::Display + std::clone::Clone + std::cmp::PartialEq + 'static,
+impl<'json, A: JsonLikeOwned + Clone + PartialEq> std::ops::Mul for JsonLikeHelper<'json, A>
 {
     type Output = ValR<Self>;
     fn mul(self, rhs: Self) -> Self::Output {
@@ -427,9 +407,7 @@ where
     }
 }
 
-impl<A> std::ops::Div for JsonLikeHelper<A>
-where
-    A: for<'a> JsonLike<'a> + std::fmt::Display + std::clone::Clone + std::cmp::PartialEq + 'static,
+impl<'json, A: JsonLikeOwned + Clone + PartialEq> std::ops::Div for JsonLikeHelper<'json, A>
 {
     type Output = ValR<Self>;
     fn div(self, rhs: Self) -> Self::Output {
@@ -437,9 +415,7 @@ where
     }
 }
 
-impl<A> std::ops::Rem for JsonLikeHelper<A>
-where
-    A: for<'a> JsonLike<'a> + std::fmt::Display + std::clone::Clone + std::cmp::PartialEq + 'static,
+impl<'json, A: JsonLikeOwned + Clone + PartialEq> std::ops::Rem for JsonLikeHelper<'json, A>
 {
     type Output = ValR<Self>;
     fn rem(self, rhs: Self) -> Self::Output {
@@ -447,9 +423,7 @@ where
     }
 }
 
-impl<A> std::ops::Neg for JsonLikeHelper<A>
-where
-    A: for<'a> JsonLike<'a> + std::fmt::Display + std::clone::Clone + std::cmp::PartialEq + 'static,
+impl<'json, A: JsonLikeOwned + Clone + PartialEq> std::ops::Neg for JsonLikeHelper<'json, A>
 {
     type Output = ValR<Self>;
     fn neg(self) -> Self::Output {
