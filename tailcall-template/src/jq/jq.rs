@@ -1,10 +1,10 @@
-use std::ops::Deref;
+use std::{borrow::Cow, ops::Deref};
 
 use jaq_core::ValR;
 
 use crate::jsonlike::{JsonLike, JsonObjectLike};
 
-#[derive(Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct JsonLikeHelper<
     A: for<'a> JsonLike<'a> + std::fmt::Display + std::clone::Clone + std::cmp::PartialEq + 'static,
 >(pub A);
@@ -384,7 +384,7 @@ where
     A: for<'a> JsonLike<'a> + std::fmt::Display + std::clone::Clone + std::cmp::PartialEq + 'static,
 {
     fn from(value: String) -> Self {
-        todo!()
+        JsonLikeHelper(JsonLike::string(Cow::Owned(value)))
     }
 }
 
@@ -402,8 +402,34 @@ where
     A: for<'a> JsonLike<'a> + std::fmt::Display + std::clone::Clone + std::cmp::PartialEq + 'static,
 {
     type Output = ValR<Self>;
-    fn add(self, rhs: Self) -> Self::Output {
-        todo!()
+    fn add(mut self, rhs: Self) -> Self::Output {
+        if self.0.is_null() && rhs.0.is_null() {
+            return Ok(self);
+        }
+
+        if let (Some(l), Some(r)) = (self.0.as_f64(), &rhs.0.as_f64()) {
+            return Ok(JsonLikeHelper(A::number_f64(l + r)));
+        }
+
+        if let (Some(l), Some(r)) = (self.0.as_str(), &rhs.0.as_str()) {
+            let mut result = String::from(l);
+            result.push_str(r);
+            return Ok(JsonLikeHelper(A::string(result.into())));
+        }
+
+        if let (Some(l), Some(r)) = (self.0.as_array_mut(), &rhs.0.as_array()) {
+            l.extend(r.iter().cloned());
+            return Ok(self);
+        }
+
+        if let (Some(l), Some(r)) = (self.0.as_object_mut(), &rhs.0.as_object()) {
+            for (k, v) in r.iter() {
+                l.insert_key(k, v.clone());
+            }
+            return Ok(self);
+        }
+
+        Err(jaq_core::Error::str("Cannot add values of different types"))
     }
 }
 
