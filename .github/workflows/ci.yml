@@ -33,6 +33,8 @@ jobs:
   build:
     name: Build and Test
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
     - name: Checkout Code
       uses: actions/checkout@v4
@@ -43,9 +45,50 @@ jobs:
         components: clippy, rustfmt
     - name: Cargo Test
       run: cargo test --all-features --workspace
-    - name: Cargo Bench
-      run: cargo bench
     - name: Cargo Fmt
       run: cargo +nightly fmt --check
     - name: Cargo Clippy
       run: cargo +nightly clippy --all-features --workspace -- -D warnings
+  release:
+    needs:
+    - build
+    if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
+    name: Release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      packages: write
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+    - name: Release Plz
+      uses: release-plz/action@v0.5
+      with:
+        command: release
+  release-pr:
+    needs:
+    - build
+    if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
+    name: Release PR
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      packages: write
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+    - name: Release Plz
+      uses: release-plz/action@v0.5
+      with:
+        command: release-pr
+    concurrency:
+      group: release-${{github.ref}}
+      cancel-in-progress: false
