@@ -313,7 +313,9 @@ where
     fn as_bool(&self) -> bool {
         if let Some(b) = self.0.as_bool() {
             b
-        } else { !self.0.is_null() }
+        } else {
+            !self.0.is_null()
+        }
     }
 
     fn as_str(&self) -> Option<&str> {
