@@ -38,7 +38,7 @@ where
             Ok(num) => ValR::Ok(JsonLikeHelper(A::number_f64(num))),
             Err(err) => ValR::Err(jaq_core::Error::str(format!(
                 "Invalid number format: {}",
-                err.to_string()
+                err
             ))),
         }
     }
@@ -65,7 +65,7 @@ where
 
     fn values(self) -> Box<dyn Iterator<Item = ValR<Self>>> {
         if let Some(arr) = self.0.as_array() {
-            let owned_array: Vec<_> = arr.iter().cloned().collect();
+            let owned_array: Vec<_> = arr.to_vec();
             Box::new(owned_array.into_iter().map(|a| Ok(JsonLikeHelper(a))))
         } else if let Some(obj) = self.0.as_object() {
             let owned_array: Vec<_> = obj.iter().map(|(_k, v)| v.clone()).collect();
@@ -108,13 +108,11 @@ where
 
             let from = from
                 .as_ref()
-                .map(|i| i.as_i64())
-                .flatten()
+                .and_then(|i| i.as_i64())
                 .ok_or_else(|| jaq_core::Error::str("From is not a Number"));
             let upto = upto
                 .as_ref()
-                .map(|i| i.as_i64())
-                .flatten()
+                .and_then(|i| i.as_i64())
                 .ok_or_else(|| jaq_core::Error::str("Upto is not a Number"));
 
             let (from, upto) = from
@@ -145,13 +143,11 @@ where
 
             let from = from
                 .as_ref()
-                .map(|i| i.as_i64())
-                .flatten()
+                .and_then(|i| i.as_i64())
                 .ok_or_else(|| jaq_core::Error::str("From is not a Number"));
             let upto = upto
                 .as_ref()
-                .map(|i| i.as_i64())
-                .flatten()
+                .and_then(|i| i.as_i64())
                 .ok_or_else(|| jaq_core::Error::str("Upto is not a Number"));
 
             let (from, upto) = from
@@ -267,8 +263,7 @@ where
                 .start
                 .as_ref()
                 .as_ref()
-                .map(|i| i.as_i64())
-                .flatten()
+                .and_then(|i| i.as_i64())
                 .map(|v| {
                     v.try_into()
                         .map_err(|_| jaq_core::Error::str("From cannot be converted to isize"))
@@ -278,8 +273,7 @@ where
                 .end
                 .as_ref()
                 .as_ref()
-                .map(|i| i.as_i64())
-                .flatten()
+                .and_then(|i| i.as_i64())
                 .map(|v| {
                     v.try_into()
                         .map_err(|_| jaq_core::Error::str("From cannot be converted to isize"))
@@ -319,11 +313,7 @@ where
     fn as_bool(&self) -> bool {
         if let Some(b) = self.0.as_bool() {
             b
-        } else if self.0.is_null() {
-            false
-        } else {
-            true
-        }
+        } else { !self.0.is_null() }
     }
 
     fn as_str(&self) -> Option<&str> {
@@ -484,7 +474,7 @@ where
 }
 
 fn skip_take(from: usize, until: usize) -> (usize, usize) {
-    (from, if until > from { until - from } else { 0 })
+    (from, until.saturating_sub(from))
 }
 
 /// If a range bound is given, absolutise and clip it between 0 and `len`,
