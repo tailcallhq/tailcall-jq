@@ -44,21 +44,15 @@ where
     }
 
     fn from_map<I: IntoIterator<Item = (Self, Self)>>(iter: I) -> ValR<Self> {
-        iter.into_iter().fold(
-            ValR::Ok(Self(JsonLike::object(JsonObjectLike::new()))),
-            |acc, (key, value)| {
-                let Some(key) = JsonLike::as_str(&key.0) else {
-                    return ValR::Err(jaq_core::Error::str("Key cannot be converted to String"));
-                };
-
-                match acc {
-                    Ok(mut acc) => {
-                        let acc_mut = JsonLike::as_object_mut(&mut acc.0).unwrap();
-                        acc_mut.insert_key(key, value.0);
-                        ValR::Ok(acc)
-                    }
-                    Err(err) => ValR::Err(err),
-                }
+        iter.into_iter().try_fold(
+            Self(JsonLike::object(JsonObjectLike::new())),
+            |mut acc, (key, value)| {
+                let key = JsonLike::as_str(&key.0)
+                    .ok_or_else(|| jaq_core::Error::str("Key cannot be converted to String"))?;
+                JsonLike::as_object_mut(&mut acc.0)
+                    .unwrap()
+                    .insert_key(key, value.0);
+                Ok(acc)
             },
         )
     }
@@ -357,7 +351,7 @@ impl<A> From<bool> for JsonLikeHelper<A>
 where
     A: for<'a> JsonLike<'a> + std::fmt::Display + std::clone::Clone + std::cmp::PartialEq + 'static,
 {
-    fn from(value: bool) -> Self {
+    fn from(_value: bool) -> Self {
         todo!()
     }
 }
@@ -366,7 +360,7 @@ impl<A> From<isize> for JsonLikeHelper<A>
 where
     A: for<'a> JsonLike<'a> + std::fmt::Display + std::clone::Clone + std::cmp::PartialEq + 'static,
 {
-    fn from(value: isize) -> Self {
+    fn from(_value: isize) -> Self {
         todo!()
     }
 }
@@ -384,7 +378,7 @@ impl<A> FromIterator<Self> for JsonLikeHelper<A>
 where
     A: for<'a> JsonLike<'a> + std::fmt::Display + std::clone::Clone + std::cmp::PartialEq + 'static,
 {
-    fn from_iter<T: IntoIterator<Item = Self>>(iter: T) -> Self {
+    fn from_iter<T: IntoIterator<Item = Self>>(_iter: T) -> Self {
         todo!()
     }
 }
@@ -430,7 +424,7 @@ where
     A: for<'a> JsonLike<'a> + std::fmt::Display + std::clone::Clone + std::cmp::PartialEq + 'static,
 {
     type Output = ValR<Self>;
-    fn sub(self, rhs: Self) -> Self::Output {
+    fn sub(self, _rhs: Self) -> Self::Output {
         todo!()
     }
 }
@@ -440,7 +434,7 @@ where
     A: for<'a> JsonLike<'a> + std::fmt::Display + std::clone::Clone + std::cmp::PartialEq + 'static,
 {
     type Output = ValR<Self>;
-    fn mul(self, rhs: Self) -> Self::Output {
+    fn mul(self, _rhs: Self) -> Self::Output {
         todo!()
     }
 }
@@ -450,7 +444,7 @@ where
     A: for<'a> JsonLike<'a> + std::fmt::Display + std::clone::Clone + std::cmp::PartialEq + 'static,
 {
     type Output = ValR<Self>;
-    fn div(self, rhs: Self) -> Self::Output {
+    fn div(self, _rhs: Self) -> Self::Output {
         todo!()
     }
 }
@@ -460,7 +454,7 @@ where
     A: for<'a> JsonLike<'a> + std::fmt::Display + std::clone::Clone + std::cmp::PartialEq + 'static,
 {
     type Output = ValR<Self>;
-    fn rem(self, rhs: Self) -> Self::Output {
+    fn rem(self, _rhs: Self) -> Self::Output {
         todo!()
     }
 }
